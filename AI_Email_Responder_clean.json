@@ -1,0 +1,415 @@
+{
+  "name": "AI Email Responder",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "includeSpamTrash": false,
+          "readStatus": "unread"
+        },
+        "options": {
+          "downloadAttachments": false
+        }
+      },
+      "id": "4b31f2a9-7ae0-4e9a-99f3-446241a91ee7",
+      "name": "New Unread Email",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        240,
+        400
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "YOUR_GMAILOAUTH2_CREDENTIAL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "messageId",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "threadId",
+              "value": "={{ $json.threadId }}",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "senderEmail",
+              "value": "={{ $json.from }}",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "senderName",
+              "value": "={{ $json.headers.from.split(\"<\")[0].trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "5",
+              "name": "subject",
+              "value": "={{ $json.subject }}",
+              "type": "string"
+            },
+            {
+              "id": "6",
+              "name": "emailBody",
+              "value": "={{ $json.text || $json.html }}",
+              "type": "string"
+            },
+            {
+              "id": "7",
+              "name": "receivedDate",
+              "value": "={{ $json.date }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1970b232-7771-4f66-85cf-f09acf9a2859",
+      "name": "Extract Email Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        464,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "{\n  \"category\": \"greeting\",\n  \"urgency\": \"low\",\n  \"confidence\": 0.95,\n  \"shouldReply\": true,\n  \"replyMessage\": \"Professional response text here\"\n}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a professional email assistant. Analyze incoming emails and generate appropriate responses.\n\nCLASSIFICATION CATEGORIES:\n- greeting: Simple greetings, thank you messages, introductions\n- customer_support: Questions about products, services, technical issues, complaints\n- job_inquiry: Job applications, career questions, recruitment\n- meeting_request: Meeting scheduling, calendar invites, appointment requests\n- spam: Unsolicited marketing, suspicious content, unclear intent\n\nURGENCY LEVELS:\n- high: Requires immediate attention (complaints, urgent requests, time-sensitive)\n- medium: Important but not urgent (meeting requests, general inquiries)\n- low: Routine messages (greetings, thank you notes)\n\nRESPONSE RULES:\n1. Be professional, human, and natural - NOT robotic\n2. Maximum 150 words\n3. Use the sender's name when available\n4. NO emojis unless the sender uses them\n5. NEVER invent information or make promises about unavailable services\n6. If information is missing, ask ONE follow-up question\n7. For spam with low confidence, politely ask for clarification\n8. For spam with high confidence, set shouldReply to false\n\nRESPONSE TEMPLATES:\n\nGREETING:\nGenerate a warm, friendly greeting that acknowledges their message.\n\nCUSTOMER SUPPORT:\nThank them for reaching out, acknowledge their concern, and provide helpful guidance or ask for more details.\n\nJOB INQUIRY:\nThank them for their interest, acknowledge their application/question professionally, and provide next steps or timeline.\n\nMEETING REQUEST:\nAcknowledge the request professionally, express willingness to meet, and ask for preferred times or suggest coordination.\n\nSPAM (low confidence):\nPolitely ask for clarification about their intent and how you can help.\n\nOUTPUT FORMAT:\nReturn JSON with:\n- category: one of [greeting, customer_support, job_inquiry, meeting_request, spam]\n- urgency: one of [low, medium, high]\n- confidence: number between 0 and 1\n- shouldReply: boolean (false only for high-confidence spam)\n- replyMessage: the generated response text (empty string if shouldReply is false)",
+          "maxIterations": 3
+        }
+      },
+      "id": "11fb1a59-16aa-4c10-a0ec-bcffec388a0f",
+      "name": "AI Email Analyzer",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        688,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"category\": \"greeting\",\n  \"urgency\": \"low\",\n  \"confidence\": 0.95,\n  \"shouldReply\": true,\n  \"replyMessage\": \"Professional response text here\"\n}",
+        "autoFix": true
+      },
+      "id": "f9063552-7643-4570-b50f-5f5fc701af1d",
+      "name": "Email Analysis Schema",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        832,
+        624
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "1",
+              "leftValue": "={{ $json.shouldReply }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "eed7d795-847b-4a6c-8dc0-cc520c249ed4",
+      "name": "Should Reply?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1040,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "messageId",
+              "value": "={{ $(\"Extract Email Data\").item.json.messageId }}",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "threadId",
+              "value": "={{ $(\"Extract Email Data\").item.json.threadId }}",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "replyText",
+              "value": "={{ $json.replyMessage }}",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "category",
+              "value": "={{ $json.category }}",
+              "type": "string"
+            },
+            {
+              "id": "5",
+              "name": "urgency",
+              "value": "={{ $json.urgency }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "399d3666-8041-420a-a36d-34d4b41b7299",
+      "name": "Prepare Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1264,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $json.messageId }}",
+        "emailType": "text",
+        "message": "={{ $json.replyText }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "ce883d14-83fe-47a7-926a-d79364b590b4",
+      "name": "Send Reply",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1488,
+        304
+      ],
+      "webhookId": "REPLACE_WITH_YOUR_WEBHOOK_ID",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "YOUR_GMAILOAUTH2_CREDENTIAL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "markAsRead",
+        "messageId": "={{ $(\"Extract Email Data\").item.json.messageId }}"
+      },
+      "id": "aaadaec5-2162-4aee-9a45-3cf75e25b270",
+      "name": "Mark as Read",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1712,
+        304
+      ],
+      "webhookId": "REPLACE_WITH_YOUR_WEBHOOK_ID",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "YOUR_GMAILOAUTH2_CREDENTIAL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "markAsRead",
+        "messageId": "={{ $(\"Extract Email Data\").item.json.messageId }}"
+      },
+      "id": "9e0f4f7c-0467-46d0-a501-2728618dce2a",
+      "name": "Mark Spam as Read",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1264,
+        496
+      ],
+      "webhookId": "REPLACE_WITH_YOUR_WEBHOOK_ID",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "YOUR_GMAILOAUTH2_CREDENTIAL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        544,
+        608
+      ],
+      "id": "397eeda6-110b-4f95-8423-524645310bde",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "YOUR_GOOGLEPALMAPI_CREDENTIAL"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "New Unread Email": {
+      "main": [
+        [
+          {
+            "node": "Extract Email Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Email Data": {
+      "main": [
+        [
+          {
+            "node": "AI Email Analyzer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Email Analyzer": {
+      "main": [
+        [
+          {
+            "node": "Should Reply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Analysis Schema": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Email Analyzer",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Reply?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Spam as Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Reply": {
+      "main": [
+        [
+          {
+            "node": "Send Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Reply": {
+      "main": [
+        [
+          {
+            "node": "Mark as Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Email Analyzer",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Email Analysis Schema",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "8c731e2f-25a9-4368-a26d-d196490d1cb3",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "REPLACE_WITH_YOUR_INSTANCE_ID"
+  },
+  "nodeGroups": [],
+  "id": "GnLtSVyctIpUFfSb",
+  "tags": []
+}
